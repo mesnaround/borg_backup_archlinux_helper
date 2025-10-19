@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Borg Backup On Calendar Schedule
+
+[Timer]
+# Run at 4 AM on these days
+OnCalendar=Sun,Tue,Fri *-*-* 4:00:00
+
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target
