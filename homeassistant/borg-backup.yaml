@@ -1,0 +1,34 @@
+# Home Assistant MQTT Sensors for Borg Backup <hostname>
+#
+# Include this in your Home Assistant configuration.yaml. One structure option:
+#   mqtt: !include_dir_merge_list mqtt/
+#
+# Then copy this file to: <config>/mqtt/borg-backup-<hostname>.yaml
+
+
+# Main sync status sensor
+- name: "Borg Backup <hostname> Status"
+  unique_id: borg_backup_<hostname>_status
+  state_topic: "homeassistant/sensor/borg_backup_<hostname>/state"
+  json_attributes_topic: "homeassistant/sensor/borg_backup_<hostname>/attributes"
+  icon: >
+    {% if value == 'success' %}
+      mdi:check-circle
+    {% elif value == 'failed' %}
+      mdi:alert-circle
+    {% elif value == 'running' %}
+      mdi:sync
+    {% else %}
+      mdi:help-circle
+    {% endif %}
+  availability:
+    - topic: "homeassistant/sensor/borg_backup_<hostname>/availability"
+
+# Sync duration sensor
+- name: "Borg Backup <hostname> Duration"
+  unique_id: borg_backup_<hostname>_duration
+  state_topic: "homeassistant/sensor/borg_backup_<hostname>/duration"
+  unit_of_measurement: "s"
+  device_class: duration
+  state_class: measurement
+  icon: mdi:timer-outline
