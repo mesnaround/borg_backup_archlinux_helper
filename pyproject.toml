@@ -1,0 +1,10 @@
+[project]
+name = "borg_backup"
+version = "0.1.0"
+description = "Borg Backup with MQTT monitoring"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pyyaml>=6.0",
+    "mqtt-script-wrapper @ git+https://github.com/mesnaround/mqtt-script-wrapper.git@0.1.2",
+]

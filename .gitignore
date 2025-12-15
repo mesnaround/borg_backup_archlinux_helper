@@ -1,1 +1,18 @@
+# Borg backup configurations (may contain sensitive paths/info)
 conf/
+
+# Systemd mount units (contain server IPs and paths)
+systemd/*.mount
+systemd/*.automount
+
+# MQTT configuration (contains credentials)
+mqtt.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+uv.lock

@@ -1,0 +1,15 @@
+[Unit]
+Description=Borg Backup with MQTT Monitoring
+# Run `systemctl list-unit-files --type=mount` to see mounts on your machine
+# below is configured for a samba share that I specify in my fstab
+After=network-online.target mnt-bpshare-bpshare0-backup.mount
+Requires=mnt-bpshare-bpshare0-backup.mount
+
+[Service]
+Type=oneshot
+ExecStart=/opt/borg_backup/.venv/bin/python /opt/borg_backup/borg_backup/mqtt_wrapper_entry.py
+User=root
+Group=root
+Environment="BORG_BACKUP_CONFIG=/etc/mqtt.yaml"
+StandardOutput=journal
+StandardError=journal

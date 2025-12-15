@@ -1,0 +1,13 @@
+[Unit]
+Description=Automount for Borg Backup Share
+After=network-online.target
+Wants=network-online.target
+
+[Automount]
+# Must match the Where= in the .mount file
+Where=/mnt/YOUR_MOUNTPOINT
+# How long to wait before unmounting when idle (in seconds)
+TimeoutIdleSec=300
+
+[Install]
+WantedBy=multi-user.target
