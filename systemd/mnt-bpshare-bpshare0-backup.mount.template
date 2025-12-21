@@ -1,7 +1,5 @@
 [Unit]
 Description=CIFS Mount for Borg Backup Share
-After=network-online.target
-Wants=network-online.target
 
 [Mount]
 # Replace with your SMB/CIFS share path
@@ -11,6 +9,3 @@ Where=/mnt/YOUR_MOUNTPOINT
 Type=cifs
 # Options: credentials file, permissions, etc.
 Options=credentials=/etc/samba/credentials,uid=1000,gid=1000,file_mode=0775,dir_mode=0775,nofail,x-systemd.automount
-
-[Install]
-WantedBy=multi-user.target
