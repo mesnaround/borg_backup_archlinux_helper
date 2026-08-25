@@ -4,6 +4,8 @@ Description=Borg Backup with MQTT Monitoring
 # below is configured for a samba share that I specify in my fstab
 After=network-online.target mnt-bpshare-bpshare0-backup.mount
 Requires=mnt-bpshare-bpshare0-backup.mount
+Before=sleep.target
+Conflicts=sleep.target
 
 [Service]
 Type=oneshot
