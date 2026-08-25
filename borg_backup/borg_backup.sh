@@ -51,6 +51,23 @@ log() {
     echo "[$(date +%Y-%m-%d_%H:%M:%S)] $1" | tee -a "$LOG_FILE"
 }
 
+# Run a borg command, tolerating borg's non-fatal "warning" exit code (1).
+# borg 1.x exit codes: 0 = success, 1 = warning, 2 = error, 3 = critical.
+# The archive is valid with exit code 1 (e.g. a file changed during backup or
+# an unreadable/dangling path), so we only treat exit code >= 2 as a hard
+# failure instead of letting `set -e` abort on an otherwise-successful backup.
+#
+# This always returns 0 so the call site's `set -e` is not tripped by the
+# non-fatal exit code 1; the real borg exit code is stored in $BORG_RC for
+# the caller to inspect.
+run_borg() {
+    set +e
+    "$@" 2>&1 | tee -a "$LOG_FILE"
+    BORG_RC=${PIPESTATUS[0]}
+    set -e
+    return 0
+}
+
 log "Starting backup for $HOSTNAME..."
 
 # Run pre-backup hook if defined
@@ -94,6 +111,30 @@ for pattern in "${EXCLUDE_PATTERNS[@]}"; do
     EXCLUDE_ARGS+=(--exclude "$pattern")
 done
 
+# Keep the backup machine-independent: drop configured paths that don't exist
+# on this host instead of letting borg warn (exit code 1) on every run.
+filter_existing() {
+    local _name="$1"
+    shift
+    local _out=()
+    local _p
+    for _p in "$@"; do
+        if [ -e "$_p" ]; then
+            _out+=("$_p")
+        else
+            log "WARNING: $_name path '$_p' does not exist; skipping"
+        fi
+    done
+    printf '%s\0' "${_out[@]}"
+}
+
+if [ "${#BACKUP_PATHS[@]}" -gt 0 ]; then
+    mapfile -d '' BACKUP_PATHS < <(filter_existing "BACKUP_PATHS" "${BACKUP_PATHS[@]}")
+fi
+if [ "${#BACKUP_FILES[@]}" -gt 0 ]; then
+    mapfile -d '' BACKUP_FILES < <(filter_existing "BACKUP_FILES" "${BACKUP_FILES[@]}")
+fi
+
 # Check if valid borg repository exists
 if ! borg list "$REPO" &>/dev/null; then
     log "No valid borg repository found. Initializing..."
@@ -119,7 +160,7 @@ fi
 
 # Create backup
 log "Creating backup archive: $ARCHIVE_NAME"
-borg create \
+run_borg borg create \
     --stats \
     --progress \
     --compression "$COMPRESSION" \
@@ -128,29 +169,47 @@ borg create \
     "$REPO::$ARCHIVE_NAME" \
     "${BACKUP_PATHS[@]}" \
     "${BACKUP_FILES[@]}" \
-    "$TEMP_DIR" \
-    2>&1 | tee -a "$LOG_FILE"
+    "$TEMP_DIR"
+log "borg create exit code: $BORG_RC (0=ok, 1=non-fatal warnings)"
+if [ "$BORG_RC" -ge 2 ]; then
+    log "ERROR: borg create failed with exit code $BORG_RC"
+    exit "$BORG_RC"
+fi
 
 # Prune old backups
 log "Pruning old backups..."
-borg prune \
+run_borg borg prune \
     --list \
     --stats \
-    --prefix "${HOSTNAME}_" \
+    --glob-archives "${HOSTNAME}_*" \
     --keep-daily="$KEEP_DAILY" \
     --keep-weekly="$KEEP_WEEKLY" \
     --keep-monthly="$KEEP_MONTHLY" \
     --keep-yearly="$KEEP_YEARLY" \
-    "$REPO" \
-    2>&1 | tee -a "$LOG_FILE"
+    "$REPO"
+log "borg prune exit code: $BORG_RC"
+if [ "$BORG_RC" -ge 2 ]; then
+    log "ERROR: borg prune failed with exit code $BORG_RC"
+    exit "$BORG_RC"
+fi
 
 # Compact repository
 log "Compacting repository..."
-borg compact "$REPO" 2>&1 | tee -a "$LOG_FILE"
+run_borg borg compact "$REPO"
+log "borg compact exit code: $BORG_RC"
+if [ "$BORG_RC" -ge 2 ]; then
+    log "ERROR: borg compact failed with exit code $BORG_RC"
+    exit "$BORG_RC"
+fi
 
 # Verify last backup
 log "Verifying backup integrity..."
-borg check --last 1 "$REPO" 2>&1 | tee -a "$LOG_FILE"
+run_borg borg check --last 1 "$REPO"
+log "borg check exit code: $BORG_RC"
+if [ "$BORG_RC" -ge 2 ]; then
+    log "ERROR: borg check failed with exit code $BORG_RC"
+    exit "$BORG_RC"
+fi
 
 # Run post-backup hook if defined
 if [ -n "${POST_BACKUP_HOOK:-}" ]; then
